@@ -15,6 +15,7 @@ public class DJListEditor extends JFrame {
     private JComboBox<String> typeComboBox;
     private JTextField djNameField, questLinkField, nonQuestLinkField;
     private JsonObject jsonObject; // Use Gson's JsonObject
+    private JButton addButton;
     private Gson gson;
 
     public DJListEditor() {
@@ -53,8 +54,15 @@ public class DJListEditor extends JFrame {
         nonQuestLinkField = new JTextField();
         inputPanel.add(nonQuestLinkField);
 
-        JButton addButton = new JButton("Add");
+        addButton = new JButton("Add");
         addButton.addActionListener(e -> addEntry());
+
+        // Disable text fields and button initially
+        djNameField.setEnabled(false);
+        questLinkField.setEnabled(false);
+        nonQuestLinkField.setEnabled(false);
+        typeComboBox.setEnabled(false); // Disable the combo box as well
+        addButton.setEnabled(false);
 
         JMenuBar menuBar = new JMenuBar();
         JMenu fileMenu = new JMenu("File");
@@ -76,12 +84,20 @@ public class DJListEditor extends JFrame {
 
     private void openFile() {
         FileDialog fd = new FileDialog(this, "Open", FileDialog.LOAD);
+        fd.setFile("*.json");
         fd.setVisible(true);
         if (fd.getFile() != null) {
             File file = new File(fd.getDirectory(), fd.getFile());
             try (Reader reader = new FileReader(file)) {
                 jsonObject = gson.fromJson(reader, JsonObject.class); // Parse JSON file to JsonObject
                 displayPane.setText(gson.toJson(jsonObject)); // Display with pretty printing
+                
+                 // Enable text fields and button after successful load
+                djNameField.setEnabled(true);
+                questLinkField.setEnabled(true);
+                nonQuestLinkField.setEnabled(true);
+                typeComboBox.setEnabled(true); // Enable the combo box as well
+                addButton.setEnabled(true);
             } catch (IOException e) {
                 JOptionPane.showMessageDialog(this, "Failed to open file", "Error", JOptionPane.ERROR_MESSAGE);
             }
@@ -115,50 +131,70 @@ public class DJListEditor extends JFrame {
             // Check and convert the quest link if necessary
             if (questLink.matches("https://stream\\.vrcdn\\.live/live/.*\\.live\\.ts")) {
                 convertedNonQuestLink = questLink.replaceFirst("https://stream\\.vrcdn\\.live/live/(.*)\\.live\\.ts", "rtspt://stream.vrcdn.live/live/$1");
-            } else {
-                convertedQuestLink = questLink; // Use the original quest link if no conversion is needed
-            }
+            } 
+            // else {
+            //     convertedQuestLink = questLink; // Use the original quest link if no conversion is needed
+            // }
 
             // Check and convert the non-quest link if necessary
             if (nonQuestLink.matches("rtspt://stream\\.vrcdn\\.live/live/.*")) {
                 convertedQuestLink = nonQuestLink.replaceFirst("rtspt://stream\\.vrcdn\\.live/live/(.*)", "https://stream.vrcdn.live/live/$1.live.ts");
-            } else {
-                convertedNonQuestLink = nonQuestLink; // Use the original non-quest link if no conversion is needed
-            }
-
-            // Create a new JSON object for the entry
-            JsonObject newEntry = new JsonObject();
-            newEntry.addProperty("DJ_Name", djName);
-            newEntry.addProperty("Non-Quest_Friendly", convertedNonQuestLink);
-            newEntry.addProperty("Quest_Friendly", convertedQuestLink);
-
-            JsonArray originalArray = jsonObject.getAsJsonArray(type + "s");
-            JsonArray newArray = new JsonArray();
-
-            boolean added = false;
-            for (int i = 0; i < originalArray.size(); i++) {
-                JsonObject existingEntry = originalArray.get(i).getAsJsonObject();
-                String existingDJName = existingEntry.get("DJ_Name").getAsString();
-                // Insert new entry before the first entry that comes after it alphabetically
-                if (!added && djName.compareToIgnoreCase(existingDJName) < 0) {
-                    newArray.add(newEntry);
-                    added = true;
-                }
-                newArray.add(existingEntry);
-            }
-
-            // If the new entry was not added because it's alphabetically last, add it now
-            if (!added) {
-                newArray.add(newEntry);
-            }
-
-            // Replace the old array with the new array
-            jsonObject.add(type + "s", newArray);
+            } 
+            // else {
+            //     convertedNonQuestLink = nonQuestLink; // Use the original non-quest link if no conversion is needed
+            // }
             
-            // array.add(newEntry);
+            // Prepare the confirmation message with DJ details
+            String confirmationMessage = String.format(
+                "Are you sure you want to add the following entry?\n\n" +
+                "DJ Name: %s\nQuest Link: %s\nNon-Quest Link: %s",
+                djName, // Use the DJ name
+                convertedQuestLink, // Use the converted quest link
+                convertedNonQuestLink // Use the converted non-quest link
+            );
 
-            // Optionally, update the display or log success
-            // displayJsonContent(); // Update the JTextPane display if needed
+            // Display the confirmation dialog
+            int response = JOptionPane.showConfirmDialog(
+                this, // parent component
+                confirmationMessage, // the confirmation message
+                "Confirm Add DJ", // title of the dialog
+                JOptionPane.YES_NO_OPTION, // option type: yes or no
+                JOptionPane.QUESTION_MESSAGE // message type: question
+            );  
+            // Check the user's response
+            if (response == JOptionPane.YES_OPTION) {
+                // Create a new JSON object for the entry
+                JsonObject newEntry = new JsonObject();
+                newEntry.addProperty("DJ_Name", djName);
+                newEntry.addProperty("Non-Quest_Friendly", convertedNonQuestLink);
+                newEntry.addProperty("Quest_Friendly", convertedQuestLink);
+
+                JsonArray originalArray = jsonObject.getAsJsonArray(type + "s");
+                JsonArray newArray = new JsonArray();
+
+                boolean added = false;
+                for (int i = 0; i < originalArray.size(); i++) {
+                    JsonObject existingEntry = originalArray.get(i).getAsJsonObject();
+                    String existingDJName = existingEntry.get("DJ_Name").getAsString();
+                    // Insert new entry before the first entry that comes after it alphabetically
+                    if (!added && djName.compareToIgnoreCase(existingDJName) < 0) {
+                        newArray.add(newEntry);
+                        added = true;
+                    }
+                    newArray.add(existingEntry);
+                }
+
+                // If the new entry was not added because it's alphabetically last, add it now
+                if (!added) {
+                    newArray.add(newEntry);
+                }
+
+                // Replace the old array with the new array
+                jsonObject.add(type + "s", newArray);
+
+            } else {
+                System.out.println("DJ addition cancelled.");
+            }
 
         } catch (Exception e) {
             e.printStackTrace(); // Log exception to standard error
