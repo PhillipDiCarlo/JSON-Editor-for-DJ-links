@@ -1,39 +1,38 @@
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import org.json.simple.JSONObject;
-import org.json.simple.JSONArray;
-import org.json.simple.parser.JSONParser;
 
 public class DJListEditor extends JFrame {
-    private JTextArea displayArea;
+    private JTextPane displayPane;
+    private JScrollPane scrollPane;
     private JComboBox<String> typeComboBox;
-    private JTextField djNameField;
-    private JTextField questLinkField;
-    private JTextField nonQuestLinkField;
-    private JFileChooser fileChooser;
-    private JSONObject jsonObject;
+    private JTextField djNameField, questLinkField, nonQuestLinkField;
+    private JsonObject jsonObject; // Use Gson's JsonObject
+    private Gson gson;
 
     public DJListEditor() {
         super("DJ List Editor");
+        gson = new GsonBuilder().setPrettyPrinting().create(); // Gson with pretty printing
+        jsonObject = new JsonObject();
+        jsonObject.add("DJs", new JsonArray());
+        jsonObject.add("VJs", new JsonArray());
         initializeComponents();
-        jsonObject = new JSONObject();
-        jsonObject.put("DJs", new JSONArray());
-        jsonObject.put("VJs", new JSONArray());
+        this.setSize(500, 300);
+        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     }
 
     private void initializeComponents() {
-        displayArea = new JTextArea();
-        displayArea.setEditable(false);
-        fileChooser = new JFileChooser();
-
-        JScrollPane scrollPane = new JScrollPane(displayArea);
-        this.add(scrollPane, BorderLayout.CENTER);
+        displayPane = new JTextPane();
+        displayPane.setEditable(false); // Make JTextPane non-editable
+        scrollPane = new JScrollPane(displayPane);
+        scrollPane.setPreferredSize(new Dimension(750, 300));
 
         JPanel inputPanel = new JPanel();
         inputPanel.setLayout(new GridLayout(4, 2, 10, 10));
@@ -73,62 +72,106 @@ public class DJListEditor extends JFrame {
         this.setLayout(new BorderLayout());
         this.add(inputPanel, BorderLayout.NORTH);
         this.add(addButton, BorderLayout.SOUTH);
-
-        this.setSize(800, 600);
-        this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     }
 
     private void openFile() {
-        if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            File file = fileChooser.getSelectedFile();
-            try {
-                JSONParser parser = new JSONParser();
-                jsonObject = (JSONObject) parser.parse(new FileReader(file));
-                displayJsonContent();
-            } catch (Exception e) {
+        FileDialog fd = new FileDialog(this, "Open", FileDialog.LOAD);
+        fd.setVisible(true);
+        if (fd.getFile() != null) {
+            File file = new File(fd.getDirectory(), fd.getFile());
+            try (Reader reader = new FileReader(file)) {
+                jsonObject = gson.fromJson(reader, JsonObject.class); // Parse JSON file to JsonObject
+                displayPane.setText(gson.toJson(jsonObject)); // Display with pretty printing
+            } catch (IOException e) {
                 JOptionPane.showMessageDialog(this, "Failed to open file", "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
-    private void displayJsonContent() {
-        StringBuilder contentBuilder = new StringBuilder();
-        for (Object key : jsonObject.keySet()) {
-            contentBuilder.append(key).append(": ").append(jsonObject.get(key)).append("\n");
-        }
-        displayArea.setText(contentBuilder.toString());
-    }
+    // private void displayJsonContent() {
+    //     // Assuming jsonObject holds your parsed JSON
+    //     // This example simply converts the jsonObject to a string for display
+    //     // For real applications, you might format this string for better readability
+    //     if (jsonObject != null) {
+    //         displayPane.setText(jsonObject.toJSONString());
+    //     }
+    // }
+    
+    // This method could be called right after parsing the JSON to update the display
+    
 
     private void addEntry() {
-        String type = (String) typeComboBox.getSelectedItem();
-        String djName = djNameField.getText();
-        String questLink = questLinkField.getText();
-        String nonQuestLink = nonQuestLinkField.getText();
+        System.out.println("Add button clicked"); // Debugging line
+        try {
+            String type = (String) typeComboBox.getSelectedItem();
+            String djName = djNameField.getText();
+            String questLink = questLinkField.getText();
+            String nonQuestLink = nonQuestLinkField.getText();
 
-        // Link conversion logic
-        String convertedNonQuestLink = nonQuestLink;
-        String convertedQuestLink = questLink;
-        if (questLink.matches("https://stream\\.vrcdn\\.live/live/.*\\.live\\.ts")) {
-            convertedNonQuestLink = questLink.replaceFirst("https://stream\\.vrcdn\\.live/live/(.*)\\.live\\.ts", "rtspt://stream.vrcdn.live/live/$1");
-        } else if (nonQuestLink.matches("rtspt://stream\\.vrcdn\\.live/live/.*")) {
-            convertedQuestLink = nonQuestLink.replaceFirst("rtspt://stream\\.vrcdn\\.live/live/(.*)", "https://stream.vrcdn.live/live/$1.live.ts");
+            // Initialize variables for the converted links
+            String convertedQuestLink = questLink;
+            String convertedNonQuestLink = nonQuestLink;
+
+            // Check and convert the quest link if necessary
+            if (questLink.matches("https://stream\\.vrcdn\\.live/live/.*\\.live\\.ts")) {
+                convertedNonQuestLink = questLink.replaceFirst("https://stream\\.vrcdn\\.live/live/(.*)\\.live\\.ts", "rtspt://stream.vrcdn.live/live/$1");
+            } else {
+                convertedQuestLink = questLink; // Use the original quest link if no conversion is needed
+            }
+
+            // Check and convert the non-quest link if necessary
+            if (nonQuestLink.matches("rtspt://stream\\.vrcdn\\.live/live/.*")) {
+                convertedQuestLink = nonQuestLink.replaceFirst("rtspt://stream\\.vrcdn\\.live/live/(.*)", "https://stream.vrcdn.live/live/$1.live.ts");
+            } else {
+                convertedNonQuestLink = nonQuestLink; // Use the original non-quest link if no conversion is needed
+            }
+
+            // Create a new JSON object for the entry
+            JsonObject newEntry = new JsonObject();
+            newEntry.addProperty("DJ_Name", djName);
+            newEntry.addProperty("Non-Quest_Friendly", convertedNonQuestLink);
+            newEntry.addProperty("Quest_Friendly", convertedQuestLink);
+
+            JsonArray originalArray = jsonObject.getAsJsonArray(type + "s");
+            JsonArray newArray = new JsonArray();
+
+            boolean added = false;
+            for (int i = 0; i < originalArray.size(); i++) {
+                JsonObject existingEntry = originalArray.get(i).getAsJsonObject();
+                String existingDJName = existingEntry.get("DJ_Name").getAsString();
+                // Insert new entry before the first entry that comes after it alphabetically
+                if (!added && djName.compareToIgnoreCase(existingDJName) < 0) {
+                    newArray.add(newEntry);
+                    added = true;
+                }
+                newArray.add(existingEntry);
+            }
+
+            // If the new entry was not added because it's alphabetically last, add it now
+            if (!added) {
+                newArray.add(newEntry);
+            }
+
+            // Replace the old array with the new array
+            jsonObject.add(type + "s", newArray);
+            
+            // array.add(newEntry);
+
+            // Optionally, update the display or log success
+            // displayJsonContent(); // Update the JTextPane display if needed
+
+        } catch (Exception e) {
+            e.printStackTrace(); // Log exception to standard error
         }
-
-        JSONObject newEntry = new JSONObject();
-        newEntry.put("DJ_Name", djName);
-        newEntry.put("Quest_Friendly", convertedQuestLink);
-        newEntry.put("Non-Quest_Friendly", convertedNonQuestLink);
-
-        JSONArray array = (JSONArray) jsonObject.get(type + "s");
-        array.add(newEntry);
-        displayJsonContent();
     }
 
     private void saveFile() {
-        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            File file = fileChooser.getSelectedFile();
-            try (FileWriter fileWriter = new FileWriter(file)) {
-                fileWriter.write(jsonObject.toJSONString());
+        FileDialog fd = new FileDialog(this, "Save", FileDialog.SAVE);
+        fd.setVisible(true);
+        if (fd.getFile() != null) {
+            File file = new File(fd.getDirectory(), fd.getFile());
+            try (Writer writer = new FileWriter(file)) {
+                gson.toJson(jsonObject, writer); // Write JSON with pretty printing
             } catch (IOException e) {
                 JOptionPane.showMessageDialog(this, "Failed to save file", "Error", JOptionPane.ERROR_MESSAGE);
             }
@@ -136,9 +179,6 @@ public class DJListEditor extends JFrame {
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            DJListEditor editor = new DJListEditor();
-            editor.setVisible(true);
-        });
+        SwingUtilities.invokeLater(() -> new DJListEditor().setVisible(true));
     }
 }
