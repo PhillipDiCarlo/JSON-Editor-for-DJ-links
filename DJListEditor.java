@@ -125,18 +125,16 @@ public class DJListEditor extends JFrame {
             String nonQuestLink = nonQuestLinkField.getText();
 
             // Initialize variables for the converted links
-            String convertedQuestLink = "";
-            String convertedNonQuestLink = "";
+            String convertedQuestLink = questLink;
+            String convertedNonQuestLink = nonQuestLink;
 
             // Check and convert the quest link 
             if (!questLink.isEmpty()) {
                 // Check and convert the quest link if it matches the specified pattern
                 if (questLink.matches("https://stream\\.vrcdn\\.live/live/.*\\.live\\.ts")) {
                     convertedNonQuestLink = questLink.replaceFirst("https://stream\\.vrcdn\\.live/live/(.*)\\.live\\.ts", "rtspt://stream.vrcdn.live/live/$1");
-                    convertedQuestLink = questLink;
                 } else {
                     convertedNonQuestLink = questLink;
-                    convertedQuestLink = questLink;
                 }
             } else {
                 // Since questLink is empty, check and convert the nonQuestLink if it matches the specified pattern
