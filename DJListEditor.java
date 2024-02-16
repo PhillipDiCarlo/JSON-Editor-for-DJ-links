@@ -125,24 +125,28 @@ public class DJListEditor extends JFrame {
             String nonQuestLink = nonQuestLinkField.getText();
 
             // Initialize variables for the converted links
-            String convertedQuestLink = questLink;
-            String convertedNonQuestLink = nonQuestLink;
+            String convertedQuestLink = "";
+            String convertedNonQuestLink = "";
 
-            // Check and convert the quest link if necessary
-            if (questLink.matches("https://stream\\.vrcdn\\.live/live/.*\\.live\\.ts")) {
-                convertedNonQuestLink = questLink.replaceFirst("https://stream\\.vrcdn\\.live/live/(.*)\\.live\\.ts", "rtspt://stream.vrcdn.live/live/$1");
-            } 
-            // else {
-            //     convertedQuestLink = questLink; // Use the original quest link if no conversion is needed
-            // }
+            // Check and convert the quest link 
+            if (!questLink.isEmpty()) {
+                // Check and convert the quest link if it matches the specified pattern
+                if (questLink.matches("https://stream\\.vrcdn\\.live/live/.*\\.live\\.ts")) {
+                    convertedNonQuestLink = questLink.replaceFirst("https://stream\\.vrcdn\\.live/live/(.*)\\.live\\.ts", "rtspt://stream.vrcdn.live/live/$1");
+                } else {
+                    convertedNonQuestLink = questLink;
+                }
+            } else {
+                // Since questLink is empty, check and convert the nonQuestLink if it matches the specified pattern
+                if (nonQuestLink.matches("rtspt://stream\\.vrcdn\\.live/live/.*")) {
+                    convertedQuestLink = nonQuestLink.replaceFirst("rtspt://stream\\.vrcdn\\.live/live/(.*)", "https://stream.vrcdn.live/live/$1.live.ts");
+                }
 
-            // Check and convert the non-quest link if necessary
-            if (nonQuestLink.matches("rtspt://stream\\.vrcdn\\.live/live/.*")) {
-                convertedQuestLink = nonQuestLink.replaceFirst("rtspt://stream\\.vrcdn\\.live/live/(.*)", "https://stream.vrcdn.live/live/$1.live.ts");
-            } 
-            // else {
-            //     convertedNonQuestLink = nonQuestLink; // Use the original non-quest link if no conversion is needed
-            // }
+                else {
+                    convertedQuestLink = "None"; // or any other default value or handling
+                }
+            }
+
             
             // Prepare the confirmation message with DJ details
             String confirmationMessage = String.format(
